@@ -3,7 +3,7 @@ import pickle
 import re
 import nltk
 from nltk.corpus import stopwords
-from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 import os
 
 nltk.download('stopwords')
@@ -34,9 +34,16 @@ def index():
         email_text = request.form["email_text"]
         processed_text = preprocess_text(email_text)
         transformed_text = vectorizer.transform([processed_text])
-        prediction = model.predict(transformed_text)[0]
-        return render_template("index.html", prediction="Spam" if prediction == 1 else "Ham")
-    return render_template("index.html")
+
+        # Get spam probability
+        probabilities = model.predict_proba(transformed_text)[0]
+        spam_prob = round(probabilities[1] * 100, 2)  # Convert to percentage
+
+        prediction = "Spam" if spam_prob > 50 else "Ham"
+        return render_template("index.html", prediction=prediction, spam_prob=spam_prob)
+
+    return render_template("index.html", prediction=None)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
