@@ -1,9 +1,8 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import pickle
 import re
 import nltk
 from nltk.corpus import stopwords
-import numpy as np
 import os
 
 nltk.download('stopwords')
@@ -28,6 +27,7 @@ def preprocess_text(text):
     words = [word for word in words if word not in stop_words]  # Remove stopwords
     return " ".join(words)
 
+# Webpage route (HTML interface)
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
@@ -44,6 +44,32 @@ def index():
 
     return render_template("index.html", prediction=None)
 
+# New API route for spam detection
+@app.route("/predict", methods=["POST"])
+def predict():
+    try:
+        data = request.get_json()  # Get JSON request data
+        email_text = data.get("email_text", "")  # Extract email text
+
+        if not email_text:
+            return jsonify({"error": "No email text provided"}), 400
+
+        processed_text = preprocess_text(email_text)
+        transformed_text = vectorizer.transform([processed_text])
+
+        # Get spam probability
+        probabilities = model.predict_proba(transformed_text)[0]
+        spam_prob = round(probabilities[1] * 100, 2)
+
+        # Determine spam or ham
+        prediction = "Spam" if spam_prob > 50 else "Ham"
+
+        return jsonify({"prediction": prediction, "spam_probability": spam_prob})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
